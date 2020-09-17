@@ -1,4 +1,4 @@
-# Jekyll::Gpx::Converter
+# Jekyll Gpx Converter
 
 Convert gpx files into viewable web pages with a map. For Jekyll 3.0 and up.
 
@@ -30,13 +30,13 @@ Lastly, add it as well as jekyll-leaflet to your `_config.yml` file:
 
 ## Usage
 
-Create a collection named "rides" in your theme and enable output for it. See (Jekyll documentation)[https://jekyllrb.com/docs/collections/] for details on how to do this.
+Create a collection named "rides" in your theme and enable output for it. See [Jekyll documentation](https://jekyllrb.com/docs/collections/) for details on how to do this.
 
 Drop some gpx files into `_rides` directory. Do *not* add front matter to them. Jekyll will render them as collection documents.
 
 You probably need to add an index page somewhere in your theme. To iterate the collection, you can do something like this:
 
-```ruby
+```html
 {% for ride in site.rides %}
   <a href="{{ ride.url | prepend: site.baseurl }}">
     <div>
@@ -49,7 +49,7 @@ You probably need to add an index page somewhere in your theme. To iterate the c
 
 To show gpx content in a theme, create a layout named "gpx". Example:
 
-```ruby
+```html
 <div class="post">
   <h1>{{ page.title }}</h1>
 
