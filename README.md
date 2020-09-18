@@ -9,7 +9,7 @@ This gem is designed to be used with jekyll-leaflet.
 Add these lines to your application's Gemfile:
 
 ```ruby
-gem 'jekyll-gpx-converter'
+gem 'jekyll-gpx-converter', github: "mhaulo/jekyll-gpx-converter"
 gem 'jekyll-leaflet'
 ```
 
