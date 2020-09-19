@@ -51,6 +51,20 @@ module Jekyll
 					end
 				end
 				
+				# If there are multiple features, we need to combine their coordinates
+				# to calculate the overall bounding box and center location.
+				all_coordinates = features.inject([]) do |memo, feature|
+					memo + feature[:geometry][:coordinates]
+				end
+				
+				geojson[:properties][:center] = center(bounding_box all_coordinates)
+				
+				# Zoom value is hardcoded for now; this should be suitable level for
+				# a typical route. Ideally this should be calculated automatically in
+				# jekyll-leaflet, because the size of the rendered map affects which
+				# zoom level is the best fit.
+				geojson[:properties][:zoom] = 11
+				
 				geojson.to_json
 			end
 			
@@ -116,6 +130,28 @@ module Jekyll
 				end
 				
 				length
+			end
+			
+			def bounding_box(coordinates)
+				lngs = coordinates.map { |point| point[0] }
+				lats = coordinates.map { |point| point[1] }
+				
+				left   = lngs.min
+				bottom = lats.min
+				right  = lngs.max
+				top    = lats.max
+				
+				[[left, top], [bottom, right]]
+			end
+			
+			def center(bbox)
+				left, top, bottom, right = bbox.flatten
+				
+				lat = (bottom + top) / 2
+				lng = (left + right) / 2
+				
+				# jekyll-leaflet takes center coordinates in this order - first lat, then lng - in contrast to geojson format, which takes lng first.
+				[lat, lng]
 			end
 		end
 	end
