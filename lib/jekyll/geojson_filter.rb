@@ -1,13 +1,24 @@
 module Jekyll
 	module GeojsonFilter
-		# Extract linestring lenght; this assumes that it is stored in the properties hash.
-		def geojson_linestring_length(input)
+		def geojson(input)
 			if input.is_a? String
-				geojson = JSON.parse input
-				geojson["properties"]["distance"]
+				JSON.parse input
 			else
-				input[:properties][:distance]
+				input
 			end
+		end
+		
+		# Extract linestring lenght; this assumes that it is stored in the properties hash.
+		def linestring_length(input)
+			input["properties"]["distance"]
+		end
+		
+		def center(input)
+			input["properties"]["center"]
+		end
+		
+		def zoom(input)
+			input["properties"]["zoom"]
 		end
 		
 		def humanize_distance(input)
