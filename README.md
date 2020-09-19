@@ -53,9 +53,13 @@ To show gpx content in a theme, create a layout named "gpx". Example:
 <div class="post">
   <h1>{{ page.title }}</h1>
 
-  {{ content | geojson_linestring_length | humanize_distance }}
+  {% assign parsed_geojson = content | geojson %}
+  {% assign map_zoom = parsed_geojson | zoom %}
+  {% assign map_center = parsed_geojson | center %}
 
-  {% leaflet_map  {"providerBasemap": "OpenStreetMap.Mapnik"} %}
+  {{ parsed_geojson | linestring_length | humanize_distance }}
+
+  {% leaflet_map {"providerBasemap": "OpenStreetMap.Mapnik", "zoom": {{map_zoom}}, "center": {{map_center}} } %}
     {% leaflet_geojson {{ content }} %}
   {% endleaflet_map %}
 </div>
@@ -68,18 +72,21 @@ To show gpx content in a theme, create a layout named "gpx". Example:
 This gem consists of three parts:
 
 * the converter itself
-* a GeoJSON filter
+* Liquid template filters
 * a monkey patch to Jekyll
 
 ### The converter
 
 This is the main feature of this gem that allows dropping in gpx files. It converts gpx file format into GeoJSON; something that the Leaflet map library can understand.
 
-### The GeoJSON filter
+### Liquid template filters
 
-Two filter methods are added for convenience:
+A few filter methods are added for convenience:
 
-* `geojson_linestring_length` extracts length information from a GeoJSON object or string. It assumes that the length is present in properties hash.
+* `geojson` parses GeoJSON string into a Ruby hash.
+* `linestring_length` extracts length information from a GeoJSON object. It assumes that the length is present in properties hash.
+* `center` extracts geojson center location. It assumes that the information is present in properties hash.
+* `zoom` extracts desired zoom level. It assumes that the information is present in properties hash.
 * `humanize_distance` returns a human-friendly format of the distance. Currently it's hard coded to output the distance in kilometers.
 
 ### The monkey patch
