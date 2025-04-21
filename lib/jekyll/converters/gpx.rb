@@ -47,12 +47,38 @@ module Jekyll
 				setup
 				xml = Nokogiri::XML(content)
 				
-				features = xml.css("trk").map do |trk|
+				# Process track elements
+				track_features = xml.css("trk").map do |trk|
 					translate_gpx_trk_to_geojson_feature(trk)
 				end
 				
+				# Process waypoint elements (new)
+				waypoint_features = xml.css("wpt").map do |wpt|
+					translate_gpx_wpt_to_geojson_feature(wpt)
+				end
+				
+				# Combine both types of features
+				features = track_features + waypoint_features
+				
+				# If no features found, create an empty GeoJSON object with default values
+				if features.empty?
+					return {
+						type: "Feature",
+						properties: {
+							center: [0, 0],
+							zoom: 11,
+							distance: 0,
+							isEmpty: true
+						},
+						geometry: {
+							type: "LineString",
+							coordinates: []
+						}
+					}.to_json
+				end
+				
 				# Return either geojson Feature or FeatureCollection, depending
-				# on how many trk elements the gpx file has.
+				# on how many elements the gpx file has.
 				geojson = begin
 					if features.size == 1
 						features.first
@@ -64,18 +90,28 @@ module Jekyll
 					end
 				end
 				
-				# If there are multiple features, we need to combine their coordinates
-				# to calculate the overall bounding box and center location.
-				all_coordinates = features.inject([]) do |memo, feature|
-					memo + feature[:geometry][:coordinates]
+				# Collect all coordinates from all features
+				all_coordinates = []
+				features.each do |feature|
+					if feature[:geometry][:type] == "LineString"
+						all_coordinates += feature[:geometry][:coordinates]
+					elsif feature[:geometry][:type] == "Point"
+						all_coordinates << feature[:geometry][:coordinates]
+					end
 				end
 				
-				geojson[:properties][:center] = center(bounding_box all_coordinates)
+				# Only calculate bounding box and center if we have coordinates
+				if all_coordinates.any?
+					bbox = bounding_box(all_coordinates)
+					geojson[:properties] ||= {}
+					geojson[:properties][:center] = center(bbox)
+				else
+					geojson[:properties] ||= {}
+					geojson[:properties][:center] = [0, 0]
+					geojson[:properties][:isEmpty] = true
+				end
 				
-				# Zoom value is hardcoded for now; this should be suitable level for
-				# a typical route. Ideally this should be calculated automatically in
-				# jekyll-leaflet, because the size of the rendered map affects which
-				# zoom level is the best fit.
+				# Zoom value is hardcoded for now
 				geojson[:properties][:zoom] = 11
 				
 				geojson.to_json
@@ -97,6 +133,7 @@ module Jekyll
 				@extname_list ||= @config[:gpx_ext].split(",").map { |e| ".#{e}" }
 			end
 			
+			# Handle track points
 			def translate_gpx_trk_to_geojson_feature(trk)
 				coordinates = trk.css("trkpt").map do |point|
 					lat = point.attributes["lat"]&.value&.to_f
@@ -104,14 +141,44 @@ module Jekyll
 					[lon, lat]
 				end
 				
+				name = trk.at_css("name")&.content || "Unnamed Track"
+				
 				{
 					type: "Feature",
 					properties: {
+						name: name,
+						type: "track",
 						distance: linestring_length(coordinates)
 					},
 					geometry: {
 						type: "LineString",
 						coordinates: coordinates
+					}
+				}
+			end
+			
+			# New method to handle waypoints
+			def translate_gpx_wpt_to_geojson_feature(wpt)
+				lat = wpt.attributes["lat"]&.value&.to_f
+				lon = wpt.attributes["lon"]&.value&.to_f
+				
+				name = wpt.at_css("name")&.content || "Waypoint"
+				desc = wpt.at_css("desc")&.content
+				
+				properties = {
+					name: name,
+					type: "waypoint"
+				}
+				
+				# Add description if available
+				properties[:description] = desc if desc
+				
+				{
+					type: "Feature",
+					properties: properties,
+					geometry: {
+						type: "Point",
+						coordinates: [lon, lat]
 					}
 				}
 			end
@@ -146,6 +213,8 @@ module Jekyll
 			end
 			
 			def bounding_box(coordinates)
+				return [[0, 0], [0, 0]] if coordinates.empty?
+				
 				lngs = coordinates.map { |point| point[0] }
 				lats = coordinates.map { |point| point[1] }
 				
@@ -159,6 +228,11 @@ module Jekyll
 			
 			def center(bbox)
 				left, top, bottom, right = bbox.flatten
+				
+				# Add safety checks to prevent nil errors
+				if left.nil? || top.nil? || bottom.nil? || right.nil?
+					return [0, 0]
+				end
 				
 				lat = (bottom + top) / 2
 				lng = (left + right) / 2
