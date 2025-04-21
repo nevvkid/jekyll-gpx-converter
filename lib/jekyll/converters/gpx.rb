@@ -6,7 +6,6 @@ module Jekyll
 			
 			DEFAULT_CONFIGURATION = {
 				gpx_ext: "gpx",
-				collection_name: "rides",
 				layout_name: "gpx"
 			}
 			
@@ -14,10 +13,24 @@ module Jekyll
 				@config = Jekyll::Utils.deep_merge_hashes(DEFAULT_CONFIGURATION, config)
 				@setup_done = false
 				
-				# Set layout like this, because gpx files don't have front matter.
+				# Set layout and extract date from filename for all collections containing GPX files
 				Jekyll::Hooks.register :site, :pre_render do |site|
-					site.collections[@config[:collection_name]].docs.each do |doc|
-						doc.data["layout"] = @config[:layout_name]
+					# Process all collections
+					site.collections.each do |name, collection|
+						collection.docs.each do |doc|
+							# Only process documents with GPX extension
+							next unless File.extname(doc.path).downcase == ".gpx"
+							
+							# Set layout
+							doc.data["layout"] = @config[:layout_name]
+							
+							# Extract date from filename if it matches the pattern YYYY_MM_DD or similar
+							filename = File.basename(doc.path)
+							if filename =~ /^(\d{4})[\s_-](\d{2})[\s_-](\d{2})/
+								year, month, day = $1, $2, $3
+								doc.data["date"] = Time.new(year.to_i, month.to_i, day.to_i)
+							end
+						end
 					end
 				end
 			end

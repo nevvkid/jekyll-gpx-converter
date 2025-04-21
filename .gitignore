@@ -13,3 +13,4 @@
 *.gem
 mkmf.log
 spec/source/_site
+.DS_Store
