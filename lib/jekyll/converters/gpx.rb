@@ -24,11 +24,39 @@ module Jekyll
 							# Set layout
 							doc.data["layout"] = @config[:layout_name]
 							
-							# Extract date from filename if it matches the pattern YYYY_MM_DD or similar
+							# Extract date from filename if it matches common date patterns
 							filename = File.basename(doc.path)
+							
 							if filename =~ /^(\d{4})[\s_-](\d{2})[\s_-](\d{2})/
+								# Format: YYYY-MM-DD, YYYY_MM_DD, YYYY MM DD
 								year, month, day = $1, $2, $3
 								doc.data["date"] = Time.new(year.to_i, month.to_i, day.to_i)
+							elsif filename =~ /^(\d{2})[\s_-](\d{2})[\s_-](\d{4})/
+								# Format: DD-MM-YYYY, DD_MM_YYYY, DD MM YYYY
+								day, month, year = $1, $2, $3
+								doc.data["date"] = Time.new(year.to_i, month.to_i, day.to_i)
+							elsif filename =~ /^(\d{2})[\s_-]([A-Za-z]{3})[\s_-](\d{4})/i
+								# Format: DD-MMM-YYYY, DD_MMM_YYYY, DD MMM YYYY (e.g., 22-Jan-2024)
+								day, month_name, year = $1, $2.downcase, $3
+								month_map = {
+									'jan' => 1, 'feb' => 2, 'mar' => 3, 'apr' => 4, 'may' => 5, 'jun' => 6,
+									'jul' => 7, 'aug' => 8, 'sep' => 9, 'oct' => 10, 'nov' => 11, 'dec' => 12
+								}
+								if month = month_map[month_name]
+									doc.data["date"] = Time.new(year.to_i, month.to_i, day.to_i)
+								end
+							end
+							
+							# Extract title from filename for better display
+							if doc.data["title"].nil? || doc.data["title"].empty?
+								base_filename = File.basename(filename, ".*")
+								
+								# Remove date prefix if present
+								clean_filename = base_filename.gsub(/^\d{4}[\s_-]\d{2}[\s_-]\d{2}[\s_-]?/, '')
+								clean_filename = clean_filename.gsub(/^\d{2}[\s_-]\d{2}[\s_-]\d{4}[\s_-]?/, '')
+								clean_filename = clean_filename.gsub(/^\d{2}[\s_-][A-Za-z]{3}[\s_-]\d{4}[\s_-]?/, '')
+								
+								doc.data["title"] = clean_filename
 							end
 						end
 					end
@@ -52,7 +80,7 @@ module Jekyll
 					translate_gpx_trk_to_geojson_feature(trk)
 				end
 				
-				# Process waypoint elements (new)
+				# Process waypoint elements
 				waypoint_features = xml.css("wpt").map do |wpt|
 					translate_gpx_wpt_to_geojson_feature(wpt)
 				end
@@ -157,21 +185,25 @@ module Jekyll
 				}
 			end
 			
-			# New method to handle waypoints
+			# Handle waypoints
 			def translate_gpx_wpt_to_geojson_feature(wpt)
 				lat = wpt.attributes["lat"]&.value&.to_f
 				lon = wpt.attributes["lon"]&.value&.to_f
 				
 				name = wpt.at_css("name")&.content || "Waypoint"
 				desc = wpt.at_css("desc")&.content
+				ele = wpt.at_css("ele")&.content
+				sym = wpt.at_css("sym")&.content
 				
 				properties = {
 					name: name,
 					type: "waypoint"
 				}
 				
-				# Add description if available
+				# Add additional properties if available
 				properties[:description] = desc if desc
+				properties[:ele] = ele.to_f if ele
+				properties[:sym] = sym if sym
 				
 				{
 					type: "Feature",
